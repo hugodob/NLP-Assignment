@@ -54,7 +54,7 @@ for key in pcfg_table:
             ante_double[(key[1],key[2])].append(key[0])
 
 
-def run_CKY(sequence, category_names, pcfg_table):
+def run_CKY(sequence, category_names, pcfg_table, u):
 
     N = len(sequence)
 
@@ -67,9 +67,11 @@ def run_CKY(sequence, category_names, pcfg_table):
         for Z in category_names:
             if (Z,sequence[i]) in pcfg_table:
                 delta_table[i][i][Z] = pcfg_table[(Z,sequence[i])]
+                delta_table[i][i][Z] += u[i][Z]
         if len(delta_table[i][i])==0: #words that are not known
             for Z in category_names:
                 delta_table[i][i][Z] = -20
+                delta_table[i][i][Z] += u[i][Z]
 
     #recursive phase : I changed the order to make it go faster
     for i in range(2, N+1):
@@ -130,7 +132,7 @@ def run_CKY(sequence, category_names, pcfg_table):
 
 
 def compute_postags(sequence, category_names, pcfg_table):
-    u = [dict(zip([category_names, 0 for i in range(len(category_names))])) for i in range(len(sequence))]
+    u = [dict(zip([category_names, [0 for i in range(len(category_names))]])) for j in range(len(sequence))]
 
     sigma_k = 1 #a
     sigma_decay = 0.9
@@ -151,3 +153,17 @@ def compute_postags(sequence, category_names, pcfg_table):
         if flag_egual:
             break
     return run_HMM #a remplir
+
+best_paths = []
+c = 0
+for sequence in sequences:
+    print(c,"/",len(sequences))
+    c +=1
+    path=compute_postags #a remplir
+    best_paths.append(path)
+
+
+with open('candidate_dual_decomp_postags','w') as f:
+    for s in best_paths:
+        f.write("%s " % s)
+        f.write("\n")
