@@ -136,9 +136,6 @@ def compute_postags(sequence, category_names, pcfg_table):
     sigma_decay = 0.9
     K = 20
 
-    if run_CKY(sequence, category_names, pcfg_table,u).split(" ")[0]="err":
-        return run_HMM #a remplir
-
     for k in range(K):
         sigma_k *= sigma_decay
         y=run_HMM #a remplir
