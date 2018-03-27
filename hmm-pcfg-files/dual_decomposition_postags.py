@@ -134,7 +134,8 @@ def run_CKY(sequence, category_names, pcfg_table, u):
 def compute_postags(sequence, category_names, pcfg_table):
     u = [dict(zip([category_names, [0 for i in range(len(category_names))]])) for j in range(len(sequence))]
 
-    sigma_k = 1 #a
+    #the 3 hyper_parameters
+    sigma_k = 1 
     sigma_decay = 0.9
     K = 20
 
