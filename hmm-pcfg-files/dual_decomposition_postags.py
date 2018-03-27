@@ -15,7 +15,7 @@ sequences = [element[0].split(" ") for element in sequences]
 
 
 ######################## FOR PCFG ###############################
-################### BUILDING A WORD DICT
+###################BUILDING A WORD DICT
 
 count=0
 words=dict()
@@ -27,8 +27,8 @@ for i in range(len(sequences)):
             count+=1
         # sequences[i][j]=words[sequences[i][j]]
 
-################### BUILDING A TAG DICT
 
+################### BUILDING A PCFG DICT
 category_names = [] #list of the name of all categories
 pcfg_table = dict() #keys are tuple (context, decision[0], decision[1]), val are probas
 with open("pcfg") as f:
@@ -43,6 +43,7 @@ with open("pcfg") as f:
             pcfg_table[(line[0], decision[0], decision[1])] = score
 
 category_names = list(set(category_names)) #for uniqueness
+category_names.append('sentence_boundary')
 
 ante_double = dict() #keys are (decision[0], decision[1]), val are list of contexts
                      #that exist for those decisions
@@ -124,24 +125,79 @@ def run_CKY(sequence, category_names, pcfg_table, u):
 #################################### END PCFG ###############################
 
 #################################### HMM part ###############################
+hmm_emits=pd.read_table('hmm_emits', header=None, quoting=csv.QUOTE_NONE)
+hmm_emits.columns=["tag", "word", "log_prob"]
+hmm_trans=pd.read_table('hmm_trans', header=None, quoting=csv.QUOTE_NONE)
+hmm_trans.columns=["source", "target", "log_prob"]
+
+tags=[]
+for tag in hmm_emits["tag"]:
+    if(tag not in tags):
+        tags.append(tag)
+tags.append('sentence_boundary')
 
 
+emits_matrix=[dict(zip(tags, [-20. for i in range(len(tags))])) for j in range(len(words))]
+for i in range(len(hmm_emits)):
+    if(hmm_emits["word"][i] in words and hmm_emits["tag"][i] in tags):
+        emits_matrix[words[hmm_emits["word"][i]]][hmm_emits["tag"][i]]=hmm_emits["log_prob"][i]
+
+trans_matrix=[dict(zip(tags, [-20. for i in range(len(tags))])) for j in range(len(tags))]
+for i in range(len(hmm_trans)):
+    trans_matrix[tags.index(hmm_trans["source"][i])][hmm_trans["target"][i]]=hmm_trans["log_prob"][i]
+
+#On isole initial_scores (log(p(tag|start))) et final_scores ((log(p(tag|end))))
+index_boundary=len(tags)-1
+initial_scores=trans_matrix[index_boundary]
+final_scores=[trans_matrix[i]['sentence_boundary'] for i in range(len(tags))]
+
+def run_HMM(sequence, initial_scores, trans_matrix, final_scores, emits_matrix, u):
+
+    length = len(sequence)  # Length of the sequence.
+
+    # Variables storing the Viterbi scores.
+    viterbi_scores = [dict(zip(tags, [-20. for i in range(len(tags))])) for j in range(len(sequence))]
+    for tag in tags:
+        viterbi_scores[0][tag]=emits_matrix[words[sequence[0]]][tag] + initial_scores[tag]-u[0][tag]
+    # Variables storing the paths to backtrack.
+    viterbi_paths = -np.ones([length, len(tags)], dtype=int)
+
+    # Most likely sequence.
+    best_path = -np.ones(length, dtype=int)
+
+    # ----------
+    for pos in xrange(1, length):
+        for current_tag in tags:
+            viterbi_scores[pos][current_tag]= np.max([viterbi_scores[pos-1][tags[i]]+trans_matrix[i][current_tag] for i in range(len(tags))])+emits_matrix[words[sequence[pos]]][current_tag]-u[pos][current_tag]
+            viterbi_paths[pos][tags.index(current_tag)]=np.argmax([viterbi_scores[pos-1][tags[i]]+trans_matrix[i][current_tag] for i in range(len(tags))])
+    best_path[length-1]=np.argmax([viterbi_scores[length-1][tags[i]]+final_scores[i] for i in range(len(tags))])
+    best_score=np.max([viterbi_scores[length-1][tags[i]]+final_scores[i]for i in range(len(tags))])
+    for pos in xrange(length-2, -1, -1):
+        best_path[pos]=viterbi_paths[pos+1][best_path[pos+1]]
+    s=''
+    for i in best_path:
+        s+=tags[i]
+        s+=' '
+    return s
 
 ##################################### END HMM ###############################
 
 
 
 def compute_postags(sequence, category_names, pcfg_table):
-    u = [dict(zip([category_names, [0 for i in range(len(category_names))]])) for j in range(len(sequence))]
+    u = [dict(zip(category_names, [0 for i in range(len(category_names))])) for j in range(len(sequence))]
 
     #the 3 hyper_parameters
-    sigma_k = 1 
+    sigma_k = 1
     sigma_decay = 0.9
     K = 20
 
     for k in range(K):
+        print(k)
         sigma_k *= sigma_decay
-        y=run_HMM #a remplir
+        print("HMM running")
+        y=run_HMM(sequence, initial_scores, trans_matrix, final_scores, emits_matrix, u) #a remplir
+        print("CKY running")
         z=run_CKY(sequence, category_names, pcfg_table,u)
         y = y.split(" ")
         z = z.split(" ")
@@ -153,14 +209,14 @@ def compute_postags(sequence, category_names, pcfg_table):
                 u[i][z[i]] += sigma_k
         if flag_egual:
             break
-    return run_HMM #a remplir
+    return run_HMM(sequence, initial_scores, trans_matrix, final_scores, emits_matrix, u) #a remplir
 
 best_paths = []
 c = 0
 for sequence in sequences:
-    print(c,"/",len(sequences))
+    print(c,"/",len(sequence))
     c +=1
-    path=compute_postags #a remplir
+    path=compute_postags(sequence, category_names, pcfg_table) #a remplir
     best_paths.append(path)
 
 

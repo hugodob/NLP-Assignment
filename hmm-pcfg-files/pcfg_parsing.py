@@ -13,7 +13,7 @@ with open("test_sents", "r") as f:
 
 sequences = [element[0].split(" ") for element in sequences]
 
-################### BUILDING A WORD DICT
+###################BUILDING A WORD DICT
 
 count=0
 words=dict()
