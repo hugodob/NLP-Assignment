@@ -1,3 +1,4 @@
+
 import re
 import io
 import pandas as pd
@@ -7,7 +8,7 @@ import time
 
 ################### SEQUENCES
 
-with open("dev_sents", "r") as f:
+with open("test_sents", "r") as f:
     reader = csv.reader(f)
     sequences  = list(reader)
 
@@ -166,13 +167,13 @@ def run_HMM(sequence, initial_scores, trans_matrix, final_scores, emits_matrix, 
     best_path = -np.ones(length, dtype=int)
 
     # ----------
-    for pos in xrange(1, length):
+    for pos in range(1, length):
         for current_tag in tags:
             viterbi_scores[pos][current_tag]= np.max([viterbi_scores[pos-1][tags[i]]+trans_matrix[i][current_tag] for i in range(len(tags))])+emits_matrix[words[sequence[pos]]][current_tag]-u[pos][current_tag]
             viterbi_paths[pos][tags.index(current_tag)]=np.argmax([viterbi_scores[pos-1][tags[i]]+trans_matrix[i][current_tag] for i in range(len(tags))])
     best_path[length-1]=np.argmax([viterbi_scores[length-1][tags[i]]+final_scores[i] for i in range(len(tags))])
     best_score=np.max([viterbi_scores[length-1][tags[i]]+final_scores[i]for i in range(len(tags))])
-    for pos in xrange(length-2, -1, -1):
+    for pos in range(length-2, -1, -1):
         best_path[pos]=viterbi_paths[pos+1][best_path[pos+1]]
     s=''
     for i in best_path:
@@ -189,38 +190,39 @@ def compute_postags(sequence, category_names, pcfg_table):
 
     #the 3 hyper_parameters
     sigma_k = 1
-    sigma_decay = 0.9
+    sigma_decay = 0.7
     K = 20
 
     for k in range(K):
-        print(k)
+        print("k = ", k)
         sigma_k *= sigma_decay
-        print("HMM running")
-        y=run_HMM(sequence, initial_scores, trans_matrix, final_scores, emits_matrix, u) #a remplir
-        print("CKY running")
+        # print("HMM running")
+        y=run_HMM(sequence, initial_scores, trans_matrix, final_scores, emits_matrix, u)
+        # print("CKY running")
         z=run_CKY(sequence, category_names, pcfg_table,u)
         y = y.split(" ")
         z = z.split(" ")
         flag_egual = True
         for i in range(len(y)):
             if y[i]!=z[i]:
+                # print("diff at ",i)
                 flag_egual = False
-                u[i][y[i]] -= sigma_k
-                u[i][z[i]] += sigma_k
+                u[i][y[i]] += sigma_k
+                u[i][z[i]] -= sigma_k
         if flag_egual:
             break
-    return run_HMM(sequence, initial_scores, trans_matrix, final_scores, emits_matrix, u) #a remplir
+    return run_HMM(sequence, initial_scores, trans_matrix, final_scores, emits_matrix, u)
 
 best_paths = []
 c = 0
 for sequence in sequences:
-    print(c,"/",len(sequence))
+    print(c,"/",len(sequences))
     c +=1
-    path=compute_postags(sequence, category_names, pcfg_table) #a remplir
+    path=compute_postags(sequence, category_names, pcfg_table)
     best_paths.append(path)
 
 
-with open('candidate_dual_decomp_postags','w') as f:
+with open('test_dual_decomp_postags','w') as f:
     for s in best_paths:
         f.write("%s " % s)
         f.write("\n")
