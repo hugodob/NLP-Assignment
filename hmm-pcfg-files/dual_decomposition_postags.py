@@ -1,14 +1,26 @@
-
+#!/usr/bin/env python
 import re
 import io
+import argparse
 import pandas as pd
 import csv
 import numpy as np
 import time
 
+################## READING THE ARGUMENTS
+argParser = argparse.ArgumentParser(description="evaluates parses and/or POS-taggings")
+argParser.add_argument("--hmm_trans", type=str, default='')
+argParser.add_argument("--hmm_emits", type=str, default='')
+argParser.add_argument("--pcfg", type=str, default='')
+argParser.add_argument("--candidate_sents", type=str, default='')
+argParser.add_argument("--sigma_init", type=float, default=1)
+argParser.add_argument("--sigma_decay", type=float, default=0.7)
+argParser.add_argument("--K", type=int, default=20)
+args = argParser.parse_args()
+
 ################### SEQUENCES
 
-with open("test_sents", "r") as f:
+with open(args.candidate_sents, "r") as f:
     reader = csv.reader(f)
     sequences  = list(reader)
 
@@ -32,7 +44,7 @@ for i in range(len(sequences)):
 ################### BUILDING A PCFG DICT
 category_names = [] #list of the name of all categories
 pcfg_table = dict() #keys are tuple (context, decision[0], decision[1]), val are probas
-with open("pcfg") as f:
+with open(args.pcfg) as f:
     for line in f:
         line = line.split("\t")
         category_names.append(line[0])
@@ -126,9 +138,9 @@ def run_CKY(sequence, category_names, pcfg_table, u):
 #################################### END PCFG ###############################
 
 #################################### HMM part ###############################
-hmm_emits=pd.read_table('hmm_emits', header=None, quoting=csv.QUOTE_NONE)
+hmm_emits=pd.read_table(args.hmm_emits, header=None, quoting=csv.QUOTE_NONE)
 hmm_emits.columns=["tag", "word", "log_prob"]
-hmm_trans=pd.read_table('hmm_trans', header=None, quoting=csv.QUOTE_NONE)
+hmm_trans=pd.read_table(args.hmm_trans, header=None, quoting=csv.QUOTE_NONE)
 hmm_trans.columns=["source", "target", "log_prob"]
 
 tags=[]
@@ -183,16 +195,14 @@ def run_HMM(sequence, initial_scores, trans_matrix, final_scores, emits_matrix, 
 
 ##################################### END HMM ###############################
 
-
+#the 3 hyper_parameters
+sigma_init = args.sigma_init
+sigma_decay = args.sigma_decay
+K = args.K
 
 def compute_postags(sequence, category_names, pcfg_table):
     u = [dict(zip(category_names, [0 for i in range(len(category_names))])) for j in range(len(sequence))]
-
-    #the 3 hyper_parameters
-    sigma_k = 1
-    sigma_decay = 0.7
-    K = 20
-
+    sigma_k=sigma_init
     for k in range(K):
         print("k = ", k)
         sigma_k *= sigma_decay
@@ -216,13 +226,13 @@ def compute_postags(sequence, category_names, pcfg_table):
 best_paths = []
 c = 0
 for sequence in sequences:
-    print(c,"/",len(sequences))
+    print(c,"/",len(sequence))
     c +=1
     path=compute_postags(sequence, category_names, pcfg_table)
     best_paths.append(path)
 
 
-with open('test_dual_decomp_postags','w') as f:
+with open('candidate_dual_decomp_postags','w') as f:
     for s in best_paths:
         f.write("%s " % s)
         f.write("\n")
