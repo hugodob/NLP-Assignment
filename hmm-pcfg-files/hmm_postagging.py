@@ -14,7 +14,7 @@ for word in hmm_emits["word"]:
         words[word]=count
         count+=1
 
-with open("dev_sents", "r") as f:
+with open("test_sents", "r") as f:
     reader = csv.reader(f)
     sequences  = list(reader)
 sequences = [element[0].split(" ") for element in sequences]
@@ -37,8 +37,8 @@ tags['sentence_boundary']=count
 nb_tags=len(tags)
 nb_words=len(words)
 
-#On cree la matrice des scores d'émission: emits_matrix[i][j] est la log prob p(word=j|tag=i)
-emits_matrix=np.full((nb_tags,nb_words), -20.) #On choisit -20 comme minimum car c'est ce qui nous donne la meilleure précision
+#On cree la matrice des scores d'emission: emits_matrix[i][j] est la log prob p(word=j|tag=i)
+emits_matrix=np.full((nb_tags,nb_words), -20.) #On choisit -20 comme minimum car c'est ce qui nous donne la meilleure precision
 for i in range(len(hmm_emits)):
     index_i=tags[hmm_emits["tag"][i]]
     index_j=words[hmm_emits["word"][i]]
@@ -84,7 +84,6 @@ def run_viterbi(sequence, initial_scores, trans_matrix, final_scores, emits_matr
     best_score=np.max(final_scores[:]+viterbi_scores[length-1,:])
     for pos in xrange(length-2, -1, -1):
         best_path[pos]=viterbi_paths[pos+1][best_path[pos+1]]
-    print best_score
     return best_path
 
 
@@ -97,7 +96,7 @@ for sequence in sequences:
         word_path.append(index_to_tags[path[i]])
     best_paths.append(word_path)
 
-with open('candidate_postags','w') as f:
+with open('candidate_hmm_postags','w') as f:
          for s in best_paths:
              for item in s:
                  f.write("%s " % item)
